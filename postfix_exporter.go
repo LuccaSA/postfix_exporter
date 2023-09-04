@@ -292,7 +292,7 @@ func CollectShowqFromSocket(path string, ch chan<- prometheus.Metric) error {
 
 // Patterns for parsing log messages.
 var (
-	logLine                             = regexp.MustCompile(` ?(postfix.*|opendkim)/(\w+)\[\d+\]: ((?:(warning|error|fatal|panic): )?.*)`)
+	logLine                             = regexp.MustCompile(` (\w+)/(\w+)\[\d+\]: ((?:(warning|error|fatal|panic): )?.*)`)
 	lmtpPipeSMTPLine                    = regexp.MustCompile(`, relay=(\S+), .*, delays=([0-9\.]+)/([0-9\.]+)/([0-9\.]+)/([0-9\.]+), `)
 	qmgrInsertLine                      = regexp.MustCompile(`:.*, size=(\d+), nrcpt=(\d+) `)
 	qmgrExpiredLine                     = regexp.MustCompile(`:.*, status=(expired|force-expired), returned to sender`)
@@ -321,13 +321,19 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 	}
 
 	process := logMatches[1]
-	remainder := logMatches[4]
-	level := logMatches[5]
+	remainder := logMatches[3]
+	level := logMatches[4]
 
 	switch process {
-	case "postfix":
+	case "opendkim":
+		if opendkimMatches := opendkimSignatureAdded.FindStringSubmatch(remainder); opendkimMatches != nil {
+			e.opendkimSignatureAdded.WithLabelValues(opendkimMatches[1], opendkimMatches[2]).Inc()
+		} else {
+			e.addToUnsupportedLine(line, process, level)
+		}
+	default:
 		// Group patterns to check by Postfix service.
-		subprocess := strings.TrimPrefix(logMatches[2], "/")
+		subprocess := logMatches[2]
 		switch subprocess {
 		case "cleanup":
 			if strings.Contains(remainder, ": message-id=<") {
@@ -422,15 +428,6 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 		default:
 			e.addToUnsupportedLine(line, subprocess, level)
 		}
-	case "opendkim":
-		if opendkimMatches := opendkimSignatureAdded.FindStringSubmatch(remainder); opendkimMatches != nil {
-			e.opendkimSignatureAdded.WithLabelValues(opendkimMatches[1], opendkimMatches[2]).Inc()
-		} else {
-			e.addToUnsupportedLine(line, process, level)
-		}
-	default:
-		// Unknown log entry format.
-		e.addToUnsupportedLine(line, process, level)
 	}
 }
 
