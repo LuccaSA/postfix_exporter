@@ -1,0 +1,39 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+    # We run on main without publishing to have a cache store on the repo default branch
+    # Branches can only use their ref's cache or default branch cache
+    # so without this, when we are not overriding a release, we are always skipping cache
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - run: git fetch --force --tags
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        with:
+          go-version: 1.24
+          # Adding a cache dependency to .gorleaser.yaml to change cache key
+          # and avoid overlap with the build / lint cache
+          # https://github.com/actions/setup-go/issues/358#issuecomment-1949901360
+          cache-dependency-path: |
+            go.sum
+            .goreleaser.yaml
+      - uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # v6.3.0
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean ${{ github.ref == 'refs/heads/main' && '--snapshot' || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
