@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -343,6 +344,9 @@ func assertVecMetricsEquals(t *testing.T, counter *prometheus.CounterVec, expect
 			metric.Write(&metricDto)
 			res = append(res, metricDto.String())
 		}
+		// Sort both slices to make comparison deterministic
+		sort.Strings(res)
+		sort.Strings(expected)
 		assert.Equal(t, expected, res, message)
 	}
 }
