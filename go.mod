@@ -1,4 +1,4 @@
-module github.com/arouene/postfix_exporter
+module github.com/LuccaSA/postfix_exporter
 
 go 1.20
 

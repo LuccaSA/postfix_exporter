@@ -1,4 +1,4 @@
-// +build !nosystemd,linux
+// +build !nosystemd,linux,ignore
 
 package main
 
