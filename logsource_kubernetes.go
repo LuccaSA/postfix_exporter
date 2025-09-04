@@ -23,10 +23,18 @@ type KubernetesLogSource struct {
 	namespace     string
 	labelSelector string
 	containerName string
-	logStream     io.ReadCloser
-	scanner       *bufio.Scanner
+	logStreams    []containerLogStream
+	logChan       chan string
 	ctx           context.Context
 	cancel        context.CancelFunc
+}
+
+// containerLogStream represents a log stream from a specific container
+type containerLogStream struct {
+	podName       string
+	containerName string
+	stream        io.ReadCloser
+	scanner       *bufio.Scanner
 }
 
 // NewKubernetesLogSource creates a new log source that reads from Kubernetes pod logs.
@@ -67,14 +75,15 @@ func NewKubernetesLogSource(namespace, labelSelector, containerName, kubeconfigP
 		namespace:     namespace,
 		labelSelector: labelSelector,
 		containerName: containerName,
+		logChan:       make(chan string, 100), // Buffered channel for log lines
 		ctx:           ctx,
 		cancel:        cancel,
 	}, nil
 }
 
-// initLogStream initializes the log stream from the first available pod
-func (s *KubernetesLogSource) initLogStream() error {
-	if s.logStream != nil {
+// initLogStreams initializes log streams from all containers in all matching pods
+func (s *KubernetesLogSource) initLogStreams() error {
+	if len(s.logStreams) > 0 {
 		return nil // Already initialized
 	}
 
@@ -90,52 +99,120 @@ func (s *KubernetesLogSource) initLogStream() error {
 		return fmt.Errorf("no pods found with label selector %s in namespace %s", s.labelSelector, s.namespace)
 	}
 
-	// Use the first running pod
-	var targetPod *corev1.Pod
+	// Collect all running pods
+	var runningPods []corev1.Pod
 	for _, pod := range pods.Items {
 		if pod.Status.Phase == corev1.PodRunning {
-			targetPod = &pod
-			break
+			runningPods = append(runningPods, pod)
 		}
 	}
 
-	if targetPod == nil {
+	if len(runningPods) == 0 {
 		return fmt.Errorf("no running pods found with label selector %s in namespace %s", s.labelSelector, s.namespace)
 	}
 
-	// Set up log streaming options
-	logOptions := &corev1.PodLogOptions{
-		Follow:    true,
-		TailLines: int64Ptr(10), // Start with last 10 lines
-		Container: s.containerName,
+	// Create log streams for all containers in all pods
+	for _, pod := range runningPods {
+		containers := pod.Spec.Containers
+		
+		// If a specific container is requested, filter to just that container
+		if s.containerName != "" {
+			var filteredContainers []corev1.Container
+			for _, container := range containers {
+				if container.Name == s.containerName {
+					filteredContainers = append(filteredContainers, container)
+					break
+				}
+			}
+			containers = filteredContainers
+		}
+
+		// Create log stream for each container
+		for _, container := range containers {
+			logOptions := &corev1.PodLogOptions{
+				Follow:    true,
+				TailLines: int64Ptr(10), // Start with last 10 lines
+				Container: container.Name,
+			}
+
+			// Create log stream
+			req := s.clientset.CoreV1().Pods(s.namespace).GetLogs(pod.Name, logOptions)
+			logStream, err := req.Stream(s.ctx)
+			if err != nil {
+				log.Printf("Failed to create log stream for pod %s container %s: %v", pod.Name, container.Name, err)
+				continue
+			}
+
+			containerStream := containerLogStream{
+				podName:       pod.Name,
+				containerName: container.Name,
+				stream:        logStream,
+				scanner:       bufio.NewScanner(logStream),
+			}
+
+			s.logStreams = append(s.logStreams, containerStream)
+			
+			// Start goroutine to read from this container's log stream
+			go s.readFromContainer(containerStream)
+			
+			log.Printf("Reading log events from Kubernetes pod %s/%s (container: %s)", s.namespace, pod.Name, container.Name)
+		}
 	}
 
-	// If no container specified, use the first container
-	if s.containerName == "" && len(targetPod.Spec.Containers) > 0 {
-		logOptions.Container = targetPod.Spec.Containers[0].Name
+	if len(s.logStreams) == 0 {
+		return fmt.Errorf("no log streams could be created")
 	}
 
-	// Create log stream
-	req := s.clientset.CoreV1().Pods(s.namespace).GetLogs(targetPod.Name, logOptions)
-	logStream, err := req.Stream(s.ctx)
-	if err != nil {
-		return fmt.Errorf("failed to create log stream for pod %s: %v", targetPod.Name, err)
-	}
-
-	s.logStream = logStream
-	s.scanner = bufio.NewScanner(logStream)
-
-	log.Printf("Reading log events from Kubernetes pod %s/%s (container: %s)", s.namespace, targetPod.Name, logOptions.Container)
 	return nil
+}
+
+// readFromContainer reads log lines from a single container and sends them to the main channel
+func (s *KubernetesLogSource) readFromContainer(containerStream containerLogStream) {
+	defer containerStream.stream.Close()
+	
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		default:
+			if containerStream.scanner.Scan() {
+				line := containerStream.scanner.Text()
+				// Prefix the line with pod and container info for better debugging
+				prefixedLine := fmt.Sprintf("[%s/%s] %s", containerStream.podName, containerStream.containerName, line)
+				
+				select {
+				case s.logChan <- prefixedLine:
+				case <-s.ctx.Done():
+					return
+				}
+			} else {
+				// Check for scanner error
+				if err := containerStream.scanner.Err(); err != nil {
+					log.Printf("Error reading from container %s/%s: %v", containerStream.podName, containerStream.containerName, err)
+				}
+				// Stream ended, exit this goroutine
+				log.Printf("Log stream ended for container %s/%s", containerStream.podName, containerStream.containerName)
+				return
+			}
+		}
+	}
 }
 
 func (s *KubernetesLogSource) Close() error {
 	if s.cancel != nil {
 		s.cancel()
 	}
-	if s.logStream != nil {
-		return s.logStream.Close()
+	
+	// Close all log streams
+	for _, stream := range s.logStreams {
+		if stream.stream != nil {
+			stream.stream.Close()
+		}
 	}
+	
+	// Close the log channel
+	close(s.logChan)
+	
 	return nil
 }
 
@@ -144,40 +221,21 @@ func (s *KubernetesLogSource) Path() string {
 }
 
 func (s *KubernetesLogSource) Read(ctx context.Context) (string, error) {
-	// Initialize log stream if not already done
-	if err := s.initLogStream(); err != nil {
+	// Initialize log streams if not already done
+	if err := s.initLogStreams(); err != nil {
 		return "", err
 	}
 
-	// Use a select to handle context cancellation
-	done := make(chan bool, 1)
-	var line string
-	var err error
-
-	go func() {
-		if s.scanner.Scan() {
-			line = s.scanner.Text()
-			err = nil
-		} else {
-			err = s.scanner.Err()
-			if err == nil {
-				err = io.EOF
-			}
-		}
-		done <- true
-	}()
-
+	// Read from the aggregated log channel
 	select {
-	case <-done:
-		if err == io.EOF {
-			// Stream ended, try to reinitialize after a delay
-			s.logStream.Close()
-			s.logStream = nil
-			s.scanner = nil
+	case line, ok := <-s.logChan:
+		if !ok {
+			// Channel closed, try to reinitialize after a delay
 			time.Sleep(5 * time.Second)
+			s.logStreams = nil // Reset streams to force reinitialization
 			return "", io.EOF
 		}
-		return line, err
+		return line, nil
 	case <-ctx.Done():
 		return "", ctx.Err()
 	case <-s.ctx.Done():
@@ -197,7 +255,7 @@ type kubernetesLogSourceFactory struct {
 func (f *kubernetesLogSourceFactory) Init(app *kingpin.Application) {
 	app.Flag("kubernetes.namespace", "Kubernetes namespace to read logs from.").StringVar(&f.namespace)
 	app.Flag("kubernetes.label-selector", "Label selector to find pods (e.g., app=postfix).").StringVar(&f.labelSelector)
-	app.Flag("kubernetes.container", "Container name to read logs from (optional, uses first container if not specified).").StringVar(&f.containerName)
+	app.Flag("kubernetes.container", "Container name to read logs from (optional, reads from all containers if not specified).").StringVar(&f.containerName)
 	app.Flag("kubernetes.kubeconfig", "Path to kubeconfig file for development (optional, uses ~/.kube/config if not specified).").StringVar(&f.kubeconfigPath)
 }
 

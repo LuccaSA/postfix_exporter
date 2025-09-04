@@ -238,9 +238,9 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 					"Mar 16 23:30:44 123-mail postfix/qmgr[29980]: warning: lots of deferred mail, that is bad for performance",
 				},
 				unsupportedLogEntries: []string{
-					`label:{name:"level" value:""} label:{name:"service" value:"smtpd"} counter:{value:1}`,
-					`label:{name:"level" value:"fatal"} label:{name:"service" value:"smtpd"} counter:{value:1}`,
-					`label:{name:"level" value:"warning"} label:{name:"service" value:"qmgr"} counter:{value:2}`,
+					`label:{name:"level"  value:""}  label:{name:"service"  value:"smtpd"}  counter:{value:1}`,
+					`label:{name:"level"  value:"fatal"}  label:{name:"service"  value:"smtpd"}  counter:{value:1}`,
+					`label:{name:"level"  value:"warning"}  label:{name:"service"  value:"qmgr"}  counter:{value:2}`,
 				},
 			},
 			fields: fields{
