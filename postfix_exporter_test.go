@@ -1,6 +1,7 @@
 package main
 
 import (
+	"regexp"
 	"sort"
 	"testing"
 
@@ -8,6 +9,14 @@ import (
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 )
+
+// normalizeProtobufString normalizes whitespace in protobuf strings to handle differences
+// between local and Docker environments (single vs double spaces)
+func normalizeProtobufString(s string) string {
+	// Replace multiple spaces with single spaces
+	re := regexp.MustCompile(`\s+`)
+	return re.ReplaceAllString(s, " ")
+}
 
 func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 	type fields struct {
@@ -238,9 +247,9 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 					"Mar 16 23:30:44 123-mail postfix/qmgr[29980]: warning: lots of deferred mail, that is bad for performance",
 				},
 				unsupportedLogEntries: []string{
-					`label:{name:"level"  value:""}  label:{name:"service"  value:"smtpd"}  counter:{value:1}`,
-					`label:{name:"level"  value:"fatal"}  label:{name:"service"  value:"smtpd"}  counter:{value:1}`,
-					`label:{name:"level"  value:"warning"}  label:{name:"service"  value:"qmgr"}  counter:{value:2}`,
+					`label:{name:"level" value:""} label:{name:"service" value:"smtpd"} counter:{value:1}`,
+					`label:{name:"level" value:"fatal"} label:{name:"service" value:"smtpd"} counter:{value:1}`,
+					`label:{name:"level" value:"warning"} label:{name:"service" value:"qmgr"} counter:{value:2}`,
 				},
 			},
 			fields: fields{
@@ -342,11 +351,16 @@ func assertVecMetricsEquals(t *testing.T, counter *prometheus.CounterVec, expect
 		for metric := range metricsChan {
 			metricDto := io_prometheus_client.Metric{}
 			metric.Write(&metricDto)
-			res = append(res, metricDto.String())
+			res = append(res, normalizeProtobufString(metricDto.String()))
+		}
+		// Normalize expected strings too
+		var normalizedExpected []string
+		for _, exp := range expected {
+			normalizedExpected = append(normalizedExpected, normalizeProtobufString(exp))
 		}
 		// Sort both slices to make comparison deterministic
 		sort.Strings(res)
-		sort.Strings(expected)
-		assert.Equal(t, expected, res, message)
+		sort.Strings(normalizedExpected)
+		assert.Equal(t, normalizedExpected, res, message)
 	}
 }
