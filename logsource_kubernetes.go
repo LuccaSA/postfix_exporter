@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -42,6 +43,7 @@ type containerLogStream struct {
 func NewKubernetesLogSource(namespace, labelSelector, podName, containerName, kubeconfigPath string) (*KubernetesLogSource, error) {
 	var config *rest.Config
 	var err error
+	var inCluster bool
 
 	// Try in-cluster config first (when running inside Kubernetes)
 	config, err = rest.InClusterConfig()
@@ -59,8 +61,10 @@ func NewKubernetesLogSource(namespace, labelSelector, podName, containerName, ku
 		} else {
 			log.Printf("Using default kubeconfig for development")
 		}
+		inCluster = false
 	} else {
 		log.Printf("Using in-cluster kubernetes config")
+		inCluster = true
 	}
 
 	// Create the clientset
@@ -70,6 +74,24 @@ func NewKubernetesLogSource(namespace, labelSelector, podName, containerName, ku
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// If namespace is not specified, determine the appropriate default
+	if namespace == "" {
+		if inCluster {
+			// When running in-cluster, read the current namespace
+			if namespaceBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
+				namespace = string(namespaceBytes)
+				log.Printf("Using current in-cluster namespace: %s", namespace)
+			} else {
+				log.Printf("Failed to read current namespace, falling back to 'default': %v", err)
+				namespace = "default"
+			}
+		} else {
+			// When running outside cluster (development), use default
+			namespace = "default"
+			log.Printf("Using default namespace for development: %s", namespace)
+		}
+	}
 
 	return &KubernetesLogSource{
 		clientset:     clientset,
@@ -91,11 +113,8 @@ func (s *KubernetesLogSource) initLogStreams() error {
 
 	var pods []corev1.Pod
 
-	// If namespace is empty, use "default"
+	// Use the namespace determined during initialization
 	namespace := s.namespace
-	if namespace == "" {
-		namespace = "default"
-	}
 
 	// Choose between pod name or label selector
 	if s.podName != "" {
