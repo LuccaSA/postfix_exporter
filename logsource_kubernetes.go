@@ -22,6 +22,7 @@ type KubernetesLogSource struct {
 	clientset     *kubernetes.Clientset
 	namespace     string
 	labelSelector string
+	podName       string
 	containerName string
 	logStreams    []containerLogStream
 	logChan       chan string
@@ -38,7 +39,7 @@ type containerLogStream struct {
 }
 
 // NewKubernetesLogSource creates a new log source that reads from Kubernetes pod logs.
-func NewKubernetesLogSource(namespace, labelSelector, containerName, kubeconfigPath string) (*KubernetesLogSource, error) {
+func NewKubernetesLogSource(namespace, labelSelector, podName, containerName, kubeconfigPath string) (*KubernetesLogSource, error) {
 	var config *rest.Config
 	var err error
 
@@ -74,6 +75,7 @@ func NewKubernetesLogSource(namespace, labelSelector, containerName, kubeconfigP
 		clientset:     clientset,
 		namespace:     namespace,
 		labelSelector: labelSelector,
+		podName:       podName,
 		containerName: containerName,
 		logChan:       make(chan string, 100), // Buffered channel for log lines
 		ctx:           ctx,
@@ -87,28 +89,59 @@ func (s *KubernetesLogSource) initLogStreams() error {
 		return nil // Already initialized
 	}
 
-	// List pods matching the label selector
-	pods, err := s.clientset.CoreV1().Pods(s.namespace).List(s.ctx, metav1.ListOptions{
-		LabelSelector: s.labelSelector,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to list pods: %v", err)
+	var pods []corev1.Pod
+
+	// If namespace is empty, use "default"
+	namespace := s.namespace
+	if namespace == "" {
+		namespace = "default"
 	}
 
-	if len(pods.Items) == 0 {
-		return fmt.Errorf("no pods found with label selector %s in namespace %s", s.labelSelector, s.namespace)
+	// Choose between pod name or label selector
+	if s.podName != "" {
+		// Get specific pod by name
+		pod, err := s.clientset.CoreV1().Pods(namespace).Get(s.ctx, s.podName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get pod %s in namespace %s: %v", s.podName, namespace, err)
+		}
+		pods = []corev1.Pod{*pod}
+		log.Printf("Found pod by name: %s/%s", namespace, s.podName)
+	} else if s.labelSelector != "" {
+		// List pods by label selector
+		podList, err := s.clientset.CoreV1().Pods(namespace).List(s.ctx, metav1.ListOptions{
+			LabelSelector: s.labelSelector,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list pods with label selector %s in namespace %s: %v", s.labelSelector, namespace, err)
+		}
+		pods = podList.Items
+		log.Printf("Found %d pods with label selector %s in namespace %s", len(pods), s.labelSelector, namespace)
+	} else {
+		return fmt.Errorf("either pod name or label selector must be specified")
+	}
+
+	if len(pods) == 0 {
+		if s.podName != "" {
+			return fmt.Errorf("pod %s not found in namespace %s", s.podName, namespace)
+		} else {
+			return fmt.Errorf("no pods found with label selector %s in namespace %s", s.labelSelector, namespace)
+		}
 	}
 
 	// Collect all running pods
 	var runningPods []corev1.Pod
-	for _, pod := range pods.Items {
+	for _, pod := range pods {
 		if pod.Status.Phase == corev1.PodRunning {
 			runningPods = append(runningPods, pod)
 		}
 	}
 
 	if len(runningPods) == 0 {
-		return fmt.Errorf("no running pods found with label selector %s in namespace %s", s.labelSelector, s.namespace)
+		if s.podName != "" {
+			return fmt.Errorf("pod %s in namespace %s is not running", s.podName, namespace)
+		} else {
+			return fmt.Errorf("no running pods found with label selector %s in namespace %s", s.labelSelector, namespace)
+		}
 	}
 
 	// Create log streams for all containers in all pods
@@ -136,7 +169,7 @@ func (s *KubernetesLogSource) initLogStreams() error {
 			}
 
 			// Create log stream
-			req := s.clientset.CoreV1().Pods(s.namespace).GetLogs(pod.Name, logOptions)
+			req := s.clientset.CoreV1().Pods(namespace).GetLogs(pod.Name, logOptions)
 			logStream, err := req.Stream(s.ctx)
 			if err != nil {
 				log.Printf("Failed to create log stream for pod %s container %s: %v", pod.Name, container.Name, err)
@@ -155,7 +188,7 @@ func (s *KubernetesLogSource) initLogStreams() error {
 			// Start goroutine to read from this container's log stream
 			go s.readFromContainer(containerStream)
 			
-			log.Printf("Reading log events from Kubernetes pod %s/%s (container: %s)", s.namespace, pod.Name, container.Name)
+			log.Printf("Reading log events from Kubernetes pod %s/%s (container: %s)", namespace, pod.Name, container.Name)
 		}
 	}
 
@@ -217,7 +250,15 @@ func (s *KubernetesLogSource) Close() error {
 }
 
 func (s *KubernetesLogSource) Path() string {
-	return fmt.Sprintf("kubernetes://%s/%s", s.namespace, s.labelSelector)
+	namespace := s.namespace
+	if namespace == "" {
+		namespace = "default"
+	}
+	
+	if s.podName != "" {
+		return fmt.Sprintf("kubernetes://%s/%s", namespace, s.podName)
+	}
+	return fmt.Sprintf("kubernetes://%s/%s", namespace, s.labelSelector)
 }
 
 func (s *KubernetesLogSource) Read(ctx context.Context) (string, error) {
@@ -248,29 +289,37 @@ func (s *KubernetesLogSource) Read(ctx context.Context) (string, error) {
 type kubernetesLogSourceFactory struct {
 	namespace     string
 	labelSelector string
+	podName       string
 	containerName string
 	kubeconfigPath string
 }
 
 func (f *kubernetesLogSourceFactory) Init(app *kingpin.Application) {
-	app.Flag("kubernetes.namespace", "Kubernetes namespace to read logs from.").StringVar(&f.namespace)
+	app.Flag("kubernetes.namespace", "Kubernetes namespace to read logs from (optional, defaults to 'default').").StringVar(&f.namespace)
 	app.Flag("kubernetes.label-selector", "Label selector to find pods (e.g., app=postfix).").StringVar(&f.labelSelector)
+	app.Flag("kubernetes.pod-name", "Specific pod name to read logs from (alternative to label-selector).").StringVar(&f.podName)
 	app.Flag("kubernetes.container", "Container name to read logs from (optional, reads from all containers if not specified).").StringVar(&f.containerName)
 	app.Flag("kubernetes.kubeconfig", "Path to kubeconfig file for development (optional, uses ~/.kube/config if not specified).").StringVar(&f.kubeconfigPath)
 }
 
 func (f *kubernetesLogSourceFactory) New(ctx context.Context) (LogSourceCloser, error) {
-	// Only create if both namespace and label selector are provided
-	if f.namespace == "" || f.labelSelector == "" {
-		return nil, nil
+	// Must specify either pod name or label selector (but not both)
+	if f.podName == "" && f.labelSelector == "" {
+		return nil, nil // Not configured
+	}
+	
+	if f.podName != "" && f.labelSelector != "" {
+		return nil, fmt.Errorf("cannot specify both pod name and label selector, choose one")
 	}
 
-	// Validate label selector format
-	if !strings.Contains(f.labelSelector, "=") && !strings.Contains(f.labelSelector, " in ") {
-		return nil, fmt.Errorf("invalid label selector format: %s (expected format: key=value or key in (value1,value2))", f.labelSelector)
+	// Validate label selector format if provided
+	if f.labelSelector != "" {
+		if !strings.Contains(f.labelSelector, "=") && !strings.Contains(f.labelSelector, " in ") {
+			return nil, fmt.Errorf("invalid label selector format: %s (expected format: key=value or key in (value1,value2))", f.labelSelector)
+		}
 	}
 
-	return NewKubernetesLogSource(f.namespace, f.labelSelector, f.containerName, f.kubeconfigPath)
+	return NewKubernetesLogSource(f.namespace, f.labelSelector, f.podName, f.containerName, f.kubeconfigPath)
 }
 
 // Helper function to create int64 pointer
