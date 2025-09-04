@@ -314,11 +314,11 @@ type kubernetesLogSourceFactory struct {
 }
 
 func (f *kubernetesLogSourceFactory) Init(app *kingpin.Application) {
-	app.Flag("kubernetes.namespace", "Kubernetes namespace to read logs from (optional, defaults to 'default').").StringVar(&f.namespace)
-	app.Flag("kubernetes.label-selector", "Label selector to find pods (e.g., app=postfix).").StringVar(&f.labelSelector)
-	app.Flag("kubernetes.pod-name", "Specific pod name to read logs from (alternative to label-selector).").StringVar(&f.podName)
-	app.Flag("kubernetes.container", "Container name to read logs from (optional, reads from all containers if not specified).").StringVar(&f.containerName)
-	app.Flag("kubernetes.kubeconfig", "Path to kubeconfig file for development (optional, uses ~/.kube/config if not specified).").StringVar(&f.kubeconfigPath)
+	app.Flag("kubernetes.namespace", "Kubernetes namespace to read logs from (optional, defaults to current namespace when in-cluster or 'default').").Envar("KUBERNETES_NAMESPACE").StringVar(&f.namespace)
+	app.Flag("kubernetes.label-selector", "Label selector to find pods (e.g., app=postfix).").Envar("KUBERNETES_LABEL_SELECTOR").StringVar(&f.labelSelector)
+	app.Flag("kubernetes.pod-name", "Specific pod name to read logs from (alternative to label-selector).").Envar("KUBERNETES_POD_NAME").StringVar(&f.podName)
+	app.Flag("kubernetes.container", "Container name to read logs from (optional, reads from all containers if not specified).").Envar("KUBERNETES_CONTAINER").StringVar(&f.containerName)
+	app.Flag("kubernetes.kubeconfig", "Path to kubeconfig file for development (optional, uses ~/.kube/config if not specified).").Envar("KUBERNETES_KUBECONFIG").StringVar(&f.kubeconfigPath)
 }
 
 func (f *kubernetesLogSourceFactory) New(ctx context.Context) (LogSourceCloser, error) {
