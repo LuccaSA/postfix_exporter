@@ -12,9 +12,9 @@ import (
 func TestKubernetesLogSourceFactory_Init(t *testing.T) {
 	app := kingpin.New("test", "test")
 	factory := &kubernetesLogSourceFactory{}
-	
+
 	factory.Init(app)
-	
+
 	// Parse some test flags
 	args := []string{
 		"--kubernetes.namespace", "default",
@@ -22,12 +22,12 @@ func TestKubernetesLogSourceFactory_Init(t *testing.T) {
 		"--kubernetes.container", "postfix",
 		"--kubernetes.kubeconfig", "/path/to/kubeconfig",
 	}
-	
+
 	_, err := app.Parse(args)
 	if err != nil {
 		t.Fatalf("Failed to parse args: %v", err)
 	}
-	
+
 	assert.Equal(t, "default", factory.namespace)
 	assert.Equal(t, "app=postfix", factory.labelSelector)
 	assert.Equal(t, "postfix", factory.containerName)
@@ -37,7 +37,7 @@ func TestKubernetesLogSourceFactory_Init(t *testing.T) {
 func TestKubernetesLogSourceFactory_New_NoConfig(t *testing.T) {
 	ctx := context.Background()
 	factory := &kubernetesLogSourceFactory{}
-	
+
 	// Should return nil when not configured
 	src, err := factory.New(ctx)
 	assert.NoError(t, err)
@@ -50,7 +50,7 @@ func TestKubernetesLogSourceFactory_New_InvalidLabelSelector(t *testing.T) {
 		namespace:     "default",
 		labelSelector: "invalid-selector",
 	}
-	
+
 	// Should return error for invalid label selector
 	src, err := factory.New(ctx)
 	assert.Error(t, err)
@@ -63,7 +63,7 @@ func TestKubernetesLogSource_Path(t *testing.T) {
 		namespace:     "test-namespace",
 		labelSelector: "app=test",
 	}
-	
+
 	expected := "kubernetes://test-namespace/app=test"
 	assert.Equal(t, expected, source.Path())
 }

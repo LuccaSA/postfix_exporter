@@ -56,7 +56,7 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 		outgoingTLS            int
 		smtpdMessagesProcessed int
 		smtpMessagesProcessed  int
-		bounceNonDelivery  int
+		bounceNonDelivery      int
 		virtualDelivered       int
 		unsupportedLogEntries  []string
 	}
@@ -75,8 +75,11 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 				saslFailedCount: 0,
 			},
 			fields: fields{
-				qmgrRemoves:           prometheus.NewCounter(prometheus.CounterOpts{}),
-				unsupportedLogEntries: prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"service", "level"}),
+				qmgrRemoves: prometheus.NewCounter(prometheus.CounterOpts{}),
+				unsupportedLogEntries: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"service", "level"},
+				),
 			},
 		},
 		{
@@ -119,8 +122,11 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 				saslFailedCount: 0,
 			},
 			fields: fields{
-				qmgrRemoves:           prometheus.NewCounter(prometheus.CounterOpts{}),
-				unsupportedLogEntries: prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"service", "level"}),
+				qmgrRemoves: prometheus.NewCounter(prometheus.CounterOpts{}),
+				unsupportedLogEntries: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"service", "level"},
+				),
 			},
 		},
 		{
@@ -130,10 +136,10 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 					"Apr 10 14:50:16 mail postfix/qmgr[3663]: BACE842E72: from=<noreply@domain.com>, status=expired, returned to sender",
 					"Apr 10 14:50:16 mail postfix/qmgr[3663]: BACE842E73: from=<noreply@domain.com>, status=force-expired, returned to sender",
 				},
-				expiredCount:    2,
+				expiredCount: 2,
 			},
 			fields: fields{
-				qmgrExpires:           prometheus.NewCounter(prometheus.CounterOpts{}),
+				qmgrExpires: prometheus.NewCounter(prometheus.CounterOpts{}),
 			},
 		},
 		{
@@ -149,8 +155,14 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 			},
 			fields: fields{
 				smtpdSASLAuthenticationFailures: prometheus.NewCounter(prometheus.CounterOpts{}),
-				unsupportedLogEntries: prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"service", "level"}),
-				smtpProcesses:                   prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"status"}),
+				unsupportedLogEntries: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"service", "level"},
+				),
+				smtpProcesses: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"status"},
+				),
 			},
 		},
 		{
@@ -166,8 +178,14 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 				smtpdMessagesProcessed: 2,
 			},
 			fields: fields{
-				unsupportedLogEntries: prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"service", "level"}),
-				smtpdProcesses:        prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"sasl_method"}),
+				unsupportedLogEntries: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"service", "level"},
+				),
+				smtpdProcesses: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"sasl_method"},
+				),
 			},
 		},
 		{
@@ -177,15 +195,24 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 					"Jul 24 04:38:17 mail postfix/smtp[30582]: Verified TLS connection established to gmail-smtp-in.l.google.com[108.177.14.26]:25: TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits) key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256",
 					"Jul 24 03:28:15 mail postfix/smtp[24052]: Verified TLS connection established to mx2.comcast.net[2001:558:fe21:2a::6]:25: TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits)",
 				},
-				removedCount:    0,
-				saslFailedCount: 0,
-				outgoingTLS:     2,
+				removedCount:           0,
+				saslFailedCount:        0,
+				outgoingTLS:            2,
 				smtpdMessagesProcessed: 0,
 			},
 			fields: fields{
-				unsupportedLogEntries: prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"service", "level"}),
-				smtpTLSConnects:       prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"Verified", "TLSv1.2", "ECDHE-RSA-AES256-GCM-SHA384", "256", "256"}),
-				smtpProcesses:         prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"status"}),
+				unsupportedLogEntries: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"service", "level"},
+				),
+				smtpTLSConnects: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"Verified", "TLSv1.2", "ECDHE-RSA-AES256-GCM-SHA384", "256", "256"},
+				),
+				smtpProcesses: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"status"},
+				),
 			},
 		},
 		{
@@ -201,8 +228,14 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 				smtpMessagesProcessed:  1,
 			},
 			fields: fields{
-				smtpDelays: prometheus.NewHistogramVec(prometheus.HistogramOpts{}, []string{"stage"}),
-				smtpProcesses: prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"status"}),
+				smtpDelays: prometheus.NewHistogramVec(
+					prometheus.HistogramOpts{},
+					[]string{"stage"},
+				),
+				smtpProcesses: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"status"},
+				),
 			},
 		},
 		{
@@ -214,14 +247,23 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 					"Dec 29 03:03:48 mail postfix/smtp[8492]: 732BB407C3: to=<redacted@domain.com>, relay=mail.domain.com[1.1.1.1]:25, delay=582, delays=563/16/1.7/0.81, dsn=5.0.0, status=bounced (host mail.domain.com[1.1.1.1] said: 554 DT:SPM 163 mx9,O8CowEDJVFKCokVaRhz+AA--.26016S3 1514513028,please see http://mail.domain.com/help/help_spam.htm?ip= (in reply to end of DATA command))",
 					"Dec 29 03:03:48 mail postfix/bounce[9321]: 732BB407C3: sender non-delivery notification: 5DE184083C",
 				},
-				smtpMessagesProcessed:  2,
-				bounceNonDelivery: 1,
+				smtpMessagesProcessed: 2,
+				bounceNonDelivery:     1,
 			},
 			fields: fields{
-				unsupportedLogEntries: prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"service", "level"}),
-				smtpDelays: prometheus.NewHistogramVec(prometheus.HistogramOpts{}, []string{"stage"}),
+				unsupportedLogEntries: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"service", "level"},
+				),
+				smtpDelays: prometheus.NewHistogramVec(
+					prometheus.HistogramOpts{},
+					[]string{"stage"},
+				),
 				smtpStatusDeferred: prometheus.NewCounter(prometheus.CounterOpts{}),
-				smtpProcesses: prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"status"}),
+				smtpProcesses: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"status"},
+				),
 				bounceNonDelivery: prometheus.NewCounter(prometheus.CounterOpts{}),
 			},
 		},
@@ -242,7 +284,7 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 			args: args{
 				line: []string{
 					"Feb 14 19:05:25 123-mail postfix/smtpd[1517]: table hash:/etc/postfix/virtual_mailbox_maps(0,lock|fold_fix) has changed -- restarting",
-				    "Mar 16 12:28:02 123-mail postfix/smtpd[16268]: fatal: file /etc/postfix/main.cf: parameter default_privs: unknown user name value: nobody",
+					"Mar 16 12:28:02 123-mail postfix/smtpd[16268]: fatal: file /etc/postfix/main.cf: parameter default_privs: unknown user name value: nobody",
 					"Mar 16 23:30:44 123-mail postfix/qmgr[29980]: warning: please avoid flushing the whole queue when you have",
 					"Mar 16 23:30:44 123-mail postfix/qmgr[29980]: warning: lots of deferred mail, that is bad for performance",
 				},
@@ -253,7 +295,10 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 				},
 			},
 			fields: fields{
-				unsupportedLogEntries: prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"service", "level"}),
+				unsupportedLogEntries: prometheus.NewCounterVec(
+					prometheus.CounterOpts{},
+					[]string{"service", "level"},
+				),
 			},
 		},
 	}
@@ -292,20 +337,65 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 			for _, line := range tt.args.line {
 				e.CollectFromLogLine(line)
 			}
-			assertCounterEquals(t, e.qmgrRemoves, tt.args.removedCount, "Wrong number of lines counted")
-			assertCounterEquals(t, e.qmgrExpires, tt.args.expiredCount, "Wrong number of qmgr expired lines counted")
-			assertCounterEquals(t, e.smtpdSASLAuthenticationFailures, tt.args.saslFailedCount, "Wrong number of Sasl counter counted")
-			assertCounterEquals(t, e.smtpTLSConnects, tt.args.outgoingTLS, "Wrong number of TLS connections counted")
-			assertCounterEquals(t, e.smtpdProcesses, tt.args.smtpdMessagesProcessed, "Wrong number of smtpd messages processed")
-			assertCounterEquals(t, e.smtpProcesses, tt.args.smtpMessagesProcessed, "Wrong number of smtp messages processed")
-			assertCounterEquals(t, e.bounceNonDelivery, tt.args.bounceNonDelivery, "Wrong number of non delivery notifications")
-			assertCounterEquals(t, e.virtualDelivered, tt.args.virtualDelivered, "Wrong number of delivered mails")
-			assertVecMetricsEquals(t, e.unsupportedLogEntries, tt.args.unsupportedLogEntries, "Wrong number of unsupportedLogEntries")
+			assertCounterEquals(
+				t,
+				e.qmgrRemoves,
+				tt.args.removedCount,
+				"Wrong number of lines counted",
+			)
+			assertCounterEquals(
+				t,
+				e.qmgrExpires,
+				tt.args.expiredCount,
+				"Wrong number of qmgr expired lines counted",
+			)
+			assertCounterEquals(
+				t,
+				e.smtpdSASLAuthenticationFailures,
+				tt.args.saslFailedCount,
+				"Wrong number of Sasl counter counted",
+			)
+			assertCounterEquals(
+				t,
+				e.smtpTLSConnects,
+				tt.args.outgoingTLS,
+				"Wrong number of TLS connections counted",
+			)
+			assertCounterEquals(
+				t,
+				e.smtpdProcesses,
+				tt.args.smtpdMessagesProcessed,
+				"Wrong number of smtpd messages processed",
+			)
+			assertCounterEquals(
+				t,
+				e.smtpProcesses,
+				tt.args.smtpMessagesProcessed,
+				"Wrong number of smtp messages processed",
+			)
+			assertCounterEquals(
+				t,
+				e.bounceNonDelivery,
+				tt.args.bounceNonDelivery,
+				"Wrong number of non delivery notifications",
+			)
+			assertCounterEquals(
+				t,
+				e.virtualDelivered,
+				tt.args.virtualDelivered,
+				"Wrong number of delivered mails",
+			)
+			assertVecMetricsEquals(
+				t,
+				e.unsupportedLogEntries,
+				tt.args.unsupportedLogEntries,
+				"Wrong number of unsupportedLogEntries",
+			)
 		})
 	}
 }
-func assertCounterEquals(t *testing.T, counter prometheus.Collector, expected int, message string) {
 
+func assertCounterEquals(t *testing.T, counter prometheus.Collector, expected int, message string) {
 	if counter != nil && expected > 0 {
 		switch counter := counter.(type) {
 		case *prometheus.CounterVec:
@@ -343,7 +433,13 @@ func assertCounterEquals(t *testing.T, counter prometheus.Collector, expected in
 		}
 	}
 }
-func assertVecMetricsEquals(t *testing.T, counter *prometheus.CounterVec, expected []string, message string) {
+
+func assertVecMetricsEquals(
+	t *testing.T,
+	counter *prometheus.CounterVec,
+	expected []string,
+	message string,
+) {
 	if expected != nil {
 		metricsChan := make(chan prometheus.Metric)
 		go func() {

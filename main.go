@@ -13,11 +13,20 @@ import (
 
 func main() {
 	var (
-		ctx                 = context.Background()
-		app                 = kingpin.New("postfix_exporter", "Prometheus metrics exporter for postfix")
-		listenAddress       = app.Flag("web.listen-address", "Address to listen on for web interface and telemetry.").Default(":9154").String()
-		metricsPath         = app.Flag("web.telemetry-path", "Path under which to expose metrics.").Default("/metrics").String()
-		postfixShowqPath    = app.Flag("postfix.showq_path", "Path at which Postfix places its showq socket.").Default("/var/spool/postfix/public/showq").String()
+		ctx = context.Background()
+		app = kingpin.New(
+			"postfix_exporter",
+			"Prometheus metrics exporter for postfix",
+		)
+		listenAddress = app.Flag("web.listen-address", "Address to listen on for web interface and telemetry.").
+				Default(":9154").
+				String()
+		metricsPath = app.Flag("web.telemetry-path", "Path under which to expose metrics.").
+				Default("/metrics").
+				String()
+		postfixShowqPath = app.Flag("postfix.showq_path", "Path at which Postfix places its showq socket.").
+					Default("/var/spool/postfix/public/showq").
+					String()
 		logUnsupportedLines = app.Flag("log.unsupported", "Log all unsupported lines.").Bool()
 	)
 

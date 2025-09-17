@@ -1,3 +1,4 @@
+//go:build !nosystemd && linux && ignore
 // +build !nosystemd,linux,ignore
 
 package main
@@ -20,8 +21,18 @@ func TestNewSystemdLogSource(t *testing.T) {
 		t.Fatalf("NewSystemdLogSource failed: %v", err)
 	}
 
-	assert.Equal(t, []string{"_SYSTEMD_SLICE=aslice"}, j.addMatchCalls, "A match should be added for slice.")
-	assert.Equal(t, []uint64{1234567890000000}, j.seekRealtimeUsecCalls, "A call to SeekRealtimeUsec should be made.")
+	assert.Equal(
+		t,
+		[]string{"_SYSTEMD_SLICE=aslice"},
+		j.addMatchCalls,
+		"A match should be added for slice.",
+	)
+	assert.Equal(
+		t,
+		[]uint64{1234567890000000},
+		j.seekRealtimeUsecCalls,
+		"A call to SeekRealtimeUsec should be made.",
+	)
 	assert.Equal(t, []time.Duration{1 * time.Second}, j.waitCalls, "A call to Wait should be made.")
 
 	if err := src.Close(); err != nil {
@@ -69,7 +80,12 @@ func TestSystemdLogSource_Read(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read failed: %v", err)
 	}
-	assert.Equal(t, "Feb 13 23:31:30 ahost anid[123]: aline", s, "Read should get data from the journal entry.")
+	assert.Equal(
+		t,
+		"Feb 13 23:31:30 ahost anid[123]: aline",
+		s,
+		"Read should get data from the journal entry.",
+	)
 }
 
 func TestSystemdLogSource_ReadEOF(t *testing.T) {

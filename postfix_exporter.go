@@ -30,12 +30,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var (
-	postfixUpDesc = prometheus.NewDesc(
-		prometheus.BuildFQName("postfix", "", "up"),
-		"Whether scraping Postfix's metrics was successful.",
-		[]string{"path"}, nil)
-)
+var postfixUpDesc = prometheus.NewDesc(
+	prometheus.BuildFQName("postfix", "", "up"),
+	"Whether scraping Postfix's metrics was successful.",
+	[]string{"path"}, nil)
 
 // PostfixExporter holds the state that should be preserved by the
 // Postfix Prometheus metrics exporter across scrapes.
@@ -108,7 +106,6 @@ func CollectShowqFromReader(file io.Reader, ch chan<- prometheus.Metric) error {
 
 // CollectTextualShowqFromReader parses Postfix's textual showq output.
 func CollectTextualShowqFromReader(file io.Reader, ch chan<- prometheus.Metric) error {
-
 	// Histograms tracking the messages by size and age.
 	sizeHistogram := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -134,7 +131,11 @@ func CollectTextualShowqFromReader(file io.Reader, ch chan<- prometheus.Metric) 
 	return err
 }
 
-func CollectTextualShowqFromScanner(sizeHistogram prometheus.ObserverVec, ageHistogram prometheus.ObserverVec, file io.Reader) error {
+func CollectTextualShowqFromScanner(
+	sizeHistogram prometheus.ObserverVec,
+	ageHistogram prometheus.ObserverVec,
+	file io.Reader,
+) error {
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
 	// Initialize all queue buckets to zero.
@@ -150,7 +151,9 @@ func CollectTextualShowqFromScanner(sizeHistogram prometheus.ObserverVec, ageHis
 
 	// Regular expression for matching postqueue's output. Example:
 	// "A07A81514      5156 Tue Feb 14 13:13:54  MAILER-DAEMON"
-	messageLine := regexp.MustCompile(`^[0-9A-F]+([\*!]?) +(\d+) (\w{3} \w{3} +\d+ +\d+:\d{2}:\d{2}) +`)
+	messageLine := regexp.MustCompile(
+		`^[0-9A-F]+([\*!]?) +(\d+) (\w{3} \w{3} +\d+ +\d+:\d{2}:\d{2}) +`,
+	)
 
 	for scanner.Scan() {
 		text := scanner.Text()
@@ -292,21 +295,41 @@ func CollectShowqFromSocket(path string, ch chan<- prometheus.Metric) error {
 
 // Patterns for parsing log messages.
 var (
-	logLine                             = regexp.MustCompile(` (\w+)/(\w+)\[\d+\]: ((?:(warning|error|fatal|panic): )?.*)`)
-	lmtpPipeSMTPLine                    = regexp.MustCompile(`, relay=(\S+), .*, delays=([0-9\.]+)/([0-9\.]+)/([0-9\.]+)/([0-9\.]+), `)
-	qmgrInsertLine                      = regexp.MustCompile(`:.*, size=(\d+), nrcpt=(\d+) `)
-	qmgrExpiredLine                     = regexp.MustCompile(`:.*, status=(expired|force-expired), returned to sender`)
-	smtpStatusLine                      = regexp.MustCompile(`, status=(\w+) `)
-	smtpTLSLine                         = regexp.MustCompile(`^(\S+) TLS connection established to \S+: (\S+) with cipher (\S+) \((\d+)/(\d+) bits\)`)
-	smtpConnectionTimedOut              = regexp.MustCompile(`^connect\s+to\s+(.*)\[(.*)\]:(\d+):\s+(Connection timed out)$`)
-	smtpdFCrDNSErrorsLine               = regexp.MustCompile(`^warning: hostname \S+ does not resolve to address `)
-	smtpdProcessesSASLLine              = regexp.MustCompile(`: client=.*, sasl_method=(\S+)`)
-	smtpdRejectsLine                    = regexp.MustCompile(`^NOQUEUE: reject: RCPT from \S+: ([0-9]+) `)
+	logLine = regexp.MustCompile(
+		` (\w+)/(\w+)\[\d+\]: ((?:(warning|error|fatal|panic): )?.*)`,
+	)
+	lmtpPipeSMTPLine = regexp.MustCompile(
+		`, relay=(\S+), .*, delays=([0-9\.]+)/([0-9\.]+)/([0-9\.]+)/([0-9\.]+), `,
+	)
+	qmgrInsertLine  = regexp.MustCompile(`:.*, size=(\d+), nrcpt=(\d+) `)
+	qmgrExpiredLine = regexp.MustCompile(
+		`:.*, status=(expired|force-expired), returned to sender`,
+	)
+	smtpStatusLine = regexp.MustCompile(`, status=(\w+) `)
+	smtpTLSLine    = regexp.MustCompile(
+		`^(\S+) TLS connection established to \S+: (\S+) with cipher (\S+) \((\d+)/(\d+) bits\)`,
+	)
+	smtpConnectionTimedOut = regexp.MustCompile(
+		`^connect\s+to\s+(.*)\[(.*)\]:(\d+):\s+(Connection timed out)$`,
+	)
+	smtpdFCrDNSErrorsLine = regexp.MustCompile(
+		`^warning: hostname \S+ does not resolve to address `,
+	)
+	smtpdProcessesSASLLine = regexp.MustCompile(`: client=.*, sasl_method=(\S+)`)
+	smtpdRejectsLine       = regexp.MustCompile(
+		`^NOQUEUE: reject: RCPT from \S+: ([0-9]+) `,
+	)
 	smtpdLostConnectionLine             = regexp.MustCompile(`^lost connection after (\w+) from `)
-	smtpdSASLAuthenticationFailuresLine = regexp.MustCompile(`^warning: \S+: SASL \S+ authentication failed: `)
-	smtpdTLSLine                        = regexp.MustCompile(`^(\S+) TLS connection established from \S+: (\S+) with cipher (\S+) \((\d+)/(\d+) bits\)`)
-	opendkimSignatureAdded              = regexp.MustCompile(`^[\w\d]+: DKIM-Signature field added \(s=(\w+), d=(.*)\)$`)
-	bounceNonDeliveryLine               = regexp.MustCompile(`: sender non-delivery notification: `)
+	smtpdSASLAuthenticationFailuresLine = regexp.MustCompile(
+		`^warning: \S+: SASL \S+ authentication failed: `,
+	)
+	smtpdTLSLine = regexp.MustCompile(
+		`^(\S+) TLS connection established from \S+: (\S+) with cipher (\S+) \((\d+)/(\d+) bits\)`,
+	)
+	opendkimSignatureAdded = regexp.MustCompile(
+		`^[\w\d]+: DKIM-Signature field added \(s=(\w+), d=(.*)\)$`,
+	)
+	bounceNonDeliveryLine = regexp.MustCompile(`: sender non-delivery notification: `)
 )
 
 // CollectFromLogline collects metrict from a Postfix log line.
@@ -345,7 +368,12 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 			}
 		case "lmtp":
 			if lmtpMatches := lmtpPipeSMTPLine.FindStringSubmatch(remainder); lmtpMatches != nil {
-				addToHistogramVec(e.lmtpDelays, lmtpMatches[2], "LMTP pdelay", "before_queue_manager")
+				addToHistogramVec(
+					e.lmtpDelays,
+					lmtpMatches[2],
+					"LMTP pdelay",
+					"before_queue_manager",
+				)
 				addToHistogramVec(e.lmtpDelays, lmtpMatches[3], "LMTP adelay", "queue_manager")
 				addToHistogramVec(e.lmtpDelays, lmtpMatches[4], "LMTP sdelay", "connection_setup")
 				addToHistogramVec(e.lmtpDelays, lmtpMatches[5], "LMTP xdelay", "transmission")
@@ -354,10 +382,34 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 			}
 		case "pipe":
 			if pipeMatches := lmtpPipeSMTPLine.FindStringSubmatch(remainder); pipeMatches != nil {
-				addToHistogramVec(e.pipeDelays, pipeMatches[2], "PIPE pdelay", pipeMatches[1], "before_queue_manager")
-				addToHistogramVec(e.pipeDelays, pipeMatches[3], "PIPE adelay", pipeMatches[1], "queue_manager")
-				addToHistogramVec(e.pipeDelays, pipeMatches[4], "PIPE sdelay", pipeMatches[1], "connection_setup")
-				addToHistogramVec(e.pipeDelays, pipeMatches[5], "PIPE xdelay", pipeMatches[1], "transmission")
+				addToHistogramVec(
+					e.pipeDelays,
+					pipeMatches[2],
+					"PIPE pdelay",
+					pipeMatches[1],
+					"before_queue_manager",
+				)
+				addToHistogramVec(
+					e.pipeDelays,
+					pipeMatches[3],
+					"PIPE adelay",
+					pipeMatches[1],
+					"queue_manager",
+				)
+				addToHistogramVec(
+					e.pipeDelays,
+					pipeMatches[4],
+					"PIPE sdelay",
+					pipeMatches[1],
+					"connection_setup",
+				)
+				addToHistogramVec(
+					e.pipeDelays,
+					pipeMatches[5],
+					"PIPE xdelay",
+					pipeMatches[1],
+					"transmission",
+				)
 			} else {
 				e.addToUnsupportedLine(line, subprocess, level)
 			}
@@ -445,6 +497,7 @@ func addToHistogram(h prometheus.Histogram, value, fieldName string) {
 	}
 	h.Observe(float)
 }
+
 func addToHistogramVec(h *prometheus.HistogramVec, value, fieldName string, labels ...string) {
 	float, err := strconv.ParseFloat(value, 64)
 	if err != nil {
@@ -454,8 +507,22 @@ func addToHistogramVec(h *prometheus.HistogramVec, value, fieldName string, labe
 }
 
 // NewPostfixExporter creates a new Postfix exporter instance.
-func NewPostfixExporter(showqPath string, logSrc LogSource, logUnsupportedLines bool) (*PostfixExporter, error) {
-	timeBuckets := []float64{1e-3, 1e-2, 1e-1, 1.0, 10, 1 * 60, 1 * 60 * 60, 24 * 60 * 60, 2 * 24 * 60 * 60}
+func NewPostfixExporter(
+	showqPath string,
+	logSrc LogSource,
+	logUnsupportedLines bool,
+) (*PostfixExporter, error) {
+	timeBuckets := []float64{
+		1e-3,
+		1e-2,
+		1e-1,
+		1.0,
+		10,
+		1 * 60,
+		1 * 60 * 60,
+		24 * 60 * 60,
+		2 * 24 * 60 * 60,
+	}
 	return &PostfixExporter{
 		logUnsupportedLines: logUnsupportedLines,
 		showqPath:           showqPath,

@@ -53,7 +53,7 @@ func InitLogSourceFactories(app *kingpin.Application) {
 func NewLogSourceFromFactories(ctx context.Context) (LogSourceCloser, error) {
 	var fileSource LogSourceCloser
 	var fileError error
-	
+
 	// First pass: try all non-file sources
 	for _, f := range logSourceFactories {
 		// Skip file log source factory in first pass
@@ -67,7 +67,7 @@ func NewLogSourceFromFactories(ctx context.Context) (LogSourceCloser, error) {
 			}
 			continue
 		}
-		
+
 		src, err := f.New(ctx)
 		if err != nil {
 			return nil, err
@@ -76,7 +76,7 @@ func NewLogSourceFromFactories(ctx context.Context) (LogSourceCloser, error) {
 			return src, nil
 		}
 	}
-	
+
 	// If no non-file source was configured, fall back to file source
 	if fileError != nil {
 		return nil, fileError

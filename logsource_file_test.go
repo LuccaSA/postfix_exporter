@@ -46,7 +46,12 @@ func TestFileLogSource_Read(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read failed: %v", err)
 	}
-	assert.Equal(t, "Feb 13 23:31:30 ahost anid[123]: aline", s, "Read should get data from the journal entry.")
+	assert.Equal(
+		t,
+		"Feb 13 23:31:30 ahost anid[123]: aline",
+		s,
+		"Read should get data from the journal entry.",
+	)
 }
 
 func setupFakeLogFile() (string, func(), error) {

@@ -1,3 +1,4 @@
+//go:build !nodocker
 // +build !nodocker
 
 package main
@@ -20,7 +21,12 @@ func TestNewDockerLogSource(t *testing.T) {
 		t.Fatalf("NewDockerLogSource failed: %v", err)
 	}
 
-	assert.Equal(t, []string{"acontainer"}, c.containerLogsCalls, "A call to ContainerLogs should be made.")
+	assert.Equal(
+		t,
+		[]string{"acontainer"},
+		c.containerLogsCalls,
+		"A call to ContainerLogs should be made.",
+	)
 
 	if err := src.Close(); err != nil {
 		t.Fatalf("Close failed: %v", err)
@@ -57,7 +63,12 @@ func TestDockerLogSource_Read(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read failed: %v", err)
 	}
-	assert.Equal(t, "Feb 13 23:31:30 ahost anid[123]: aline", s, "Read should get data from the journal entry.")
+	assert.Equal(
+		t,
+		"Feb 13 23:31:30 ahost anid[123]: aline",
+		s,
+		"Read should get data from the journal entry.",
+	)
 }
 
 type fakeDockerClient struct {
@@ -67,7 +78,11 @@ type fakeDockerClient struct {
 	closeCalls         int
 }
 
-func (c *fakeDockerClient) ContainerLogs(ctx context.Context, containerID string, opts types.ContainerLogsOptions) (io.ReadCloser, error) {
+func (c *fakeDockerClient) ContainerLogs(
+	ctx context.Context,
+	containerID string,
+	opts types.ContainerLogsOptions,
+) (io.ReadCloser, error) {
 	c.containerLogsCalls = append(c.containerLogsCalls, containerID)
 	return c.logsReader, nil
 }
