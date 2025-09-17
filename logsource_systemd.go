@@ -70,6 +70,7 @@ func fullMessageFormatter(entry *sdjournal.JournalEntry) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("no SYSLOG_IDENTIFIER field present in journal entry")
 	}
+
 	pid, ok := entry.Fields["_PID"]
 	if !ok {
 		return "", fmt.Errorf("no PID field present in journal entry")

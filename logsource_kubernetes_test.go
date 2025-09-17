@@ -71,6 +71,7 @@ func TestKubernetesLogSource_Path(t *testing.T) {
 func TestKubernetesLogSourceFactory_EnvironmentVariables(t *testing.T) {
 	// Test environment variable support
 	os.Setenv("KUBERNETES_POD_NAME", "test-pod")
+
 	os.Setenv("KUBERNETES_NAMESPACE", "test-namespace")
 	defer os.Unsetenv("KUBERNETES_POD_NAME")
 	defer os.Unsetenv("KUBERNETES_NAMESPACE")
@@ -80,6 +81,7 @@ func TestKubernetesLogSourceFactory_EnvironmentVariables(t *testing.T) {
 	factory.Init(app)
 
 	args := []string{}
+
 	_, err := app.Parse(args)
 	if err != nil {
 		t.Fatalf("Failed to parse args: %v", err)

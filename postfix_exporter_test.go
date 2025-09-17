@@ -48,6 +48,7 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 		virtualDelivered                prometheus.Counter
 		unsupportedLogEntries           *prometheus.CounterVec
 	}
+
 	type args struct {
 		line                   []string
 		removedCount           int
@@ -60,6 +61,7 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 		virtualDelivered       int
 		unsupportedLogEntries  []string
 	}
+
 	tests := []struct {
 		name   string
 		fields fields
@@ -337,6 +339,7 @@ func TestPostfixExporter_CollectFromLogline(t *testing.T) {
 			for _, line := range tt.args.line {
 				e.CollectFromLogLine(line)
 			}
+
 			assertCounterEquals(
 				t,
 				e.qmgrRemoves,
@@ -400,33 +403,43 @@ func assertCounterEquals(t *testing.T, counter prometheus.Collector, expected in
 		switch counter := counter.(type) {
 		case *prometheus.CounterVec:
 			metricsChan := make(chan prometheus.Metric)
+
 			go func() {
 				counter.Collect(metricsChan)
 				close(metricsChan)
 			}()
+
 			var count int = 0
+
 			for metric := range metricsChan {
 				metricDto := io_prometheus_client.Metric{}
 				if err := metric.Write(&metricDto); err != nil {
 					t.Fatalf("Failed to write metric: %v", err)
 				}
+
 				count += int(*metricDto.Counter.Value)
 			}
+
 			assert.Equal(t, expected, count, message)
 		case prometheus.Counter:
 			metricsChan := make(chan prometheus.Metric)
+
 			go func() {
 				counter.Collect(metricsChan)
 				close(metricsChan)
 			}()
+
 			var count int = 0
+
 			for metric := range metricsChan {
 				metricDto := io_prometheus_client.Metric{}
 				if err := metric.Write(&metricDto); err != nil {
 					t.Fatalf("Failed to write metric: %v", err)
 				}
+
 				count += int(*metricDto.Counter.Value)
 			}
+
 			assert.Equal(t, expected, count, message)
 		default:
 			t.Fatal("Type not implemented")
@@ -442,16 +455,20 @@ func assertVecMetricsEquals(
 ) {
 	if expected != nil {
 		metricsChan := make(chan prometheus.Metric)
+
 		go func() {
 			counter.Collect(metricsChan)
 			close(metricsChan)
 		}()
+
 		var res []string
+
 		for metric := range metricsChan {
 			metricDto := io_prometheus_client.Metric{}
 			if err := metric.Write(&metricDto); err != nil {
 				t.Fatalf("Failed to write metric: %v", err)
 			}
+
 			res = append(res, normalizeProtobufString(metricDto.String()))
 		}
 		// Normalize expected strings too

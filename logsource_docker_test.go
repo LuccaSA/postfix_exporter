@@ -16,6 +16,7 @@ import (
 func TestNewDockerLogSource(t *testing.T) {
 	ctx := context.Background()
 	c := &fakeDockerClient{}
+
 	src, err := NewDockerLogSource(ctx, c, "acontainer")
 	if err != nil {
 		t.Fatalf("NewDockerLogSource failed: %v", err)
@@ -38,6 +39,7 @@ func TestNewDockerLogSource(t *testing.T) {
 func TestDockerLogSource_Path(t *testing.T) {
 	ctx := context.Background()
 	c := &fakeDockerClient{}
+
 	src, err := NewDockerLogSource(ctx, c, "acontainer")
 	if err != nil {
 		t.Fatalf("NewDockerLogSource failed: %v", err)
@@ -53,6 +55,7 @@ func TestDockerLogSource_Read(t *testing.T) {
 	c := &fakeDockerClient{
 		logsReader: io.NopCloser(strings.NewReader("Feb 13 23:31:30 ahost anid[123]: aline\n")),
 	}
+
 	src, err := NewDockerLogSource(ctx, c, "acontainer")
 	if err != nil {
 		t.Fatalf("NewDockerLogSource failed: %v", err)
@@ -63,6 +66,7 @@ func TestDockerLogSource_Read(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read failed: %v", err)
 	}
+
 	assert.Equal(
 		t,
 		"Feb 13 23:31:30 ahost anid[123]: aline",

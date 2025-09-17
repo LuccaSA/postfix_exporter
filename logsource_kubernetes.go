@@ -43,9 +43,11 @@ type containerLogStream struct {
 func NewKubernetesLogSource(
 	namespace, labelSelector, podName, containerName, kubeconfigPath string,
 ) (*KubernetesLogSource, error) {
-	var config *rest.Config
-	var err error
-	var inCluster bool
+	var (
+		config    *rest.Config
+		err       error
+		inCluster bool
+	)
 
 	// Try in-cluster config first (when running inside Kubernetes)
 	config, err = rest.InClusterConfig()
@@ -58,14 +60,17 @@ func NewKubernetesLogSource(
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kubernetes config from kubeconfig: %v", err)
 		}
+
 		if kubeconfigPath != "" {
 			log.Printf("Using kubeconfig from: %s", kubeconfigPath)
 		} else {
 			log.Printf("Using default kubeconfig for development")
 		}
+
 		inCluster = false
 	} else {
 		log.Printf("Using in-cluster kubernetes config")
+
 		inCluster = true
 	}
 
@@ -86,6 +91,7 @@ func NewKubernetesLogSource(
 				log.Printf("Using current in-cluster namespace: %s", namespace)
 			} else {
 				log.Printf("Failed to read current namespace, falling back to 'default': %v", err)
+
 				namespace = "default"
 			}
 		} else {
@@ -125,7 +131,9 @@ func (s *KubernetesLogSource) initLogStreams() error {
 		if err != nil {
 			return fmt.Errorf("failed to get pod %s in namespace %s: %v", s.podName, namespace, err)
 		}
+
 		pods = []corev1.Pod{*pod}
+
 		log.Printf("Found pod by name: %s/%s", namespace, s.podName)
 	} else if s.labelSelector != "" {
 		// List pods by label selector
@@ -135,6 +143,7 @@ func (s *KubernetesLogSource) initLogStreams() error {
 		if err != nil {
 			return fmt.Errorf("failed to list pods with label selector %s in namespace %s: %v", s.labelSelector, namespace, err)
 		}
+
 		pods = podList.Items
 		log.Printf("Found %d pods with label selector %s in namespace %s", len(pods), s.labelSelector, namespace)
 	} else {
@@ -172,12 +181,14 @@ func (s *KubernetesLogSource) initLogStreams() error {
 		// If a specific container is requested, filter to just that container
 		if s.containerName != "" {
 			var filteredContainers []corev1.Container
+
 			for _, container := range containers {
 				if container.Name == s.containerName {
 					filteredContainers = append(filteredContainers, container)
 					break
 				}
 			}
+
 			containers = filteredContainers
 		}
 
@@ -191,6 +202,7 @@ func (s *KubernetesLogSource) initLogStreams() error {
 
 			// Create log stream
 			req := s.clientset.CoreV1().Pods(namespace).GetLogs(pod.Name, logOptions)
+
 			logStream, err := req.Stream(s.ctx)
 			if err != nil {
 				log.Printf(
@@ -199,6 +211,7 @@ func (s *KubernetesLogSource) initLogStreams() error {
 					container.Name,
 					err,
 				)
+
 				continue
 			}
 
@@ -261,6 +274,7 @@ func (s *KubernetesLogSource) readFromContainer(containerStream containerLogStre
 				}
 				// Stream ended, exit this goroutine
 				log.Printf("Log stream ended for container %s/%s", containerStream.podName, containerStream.containerName)
+
 				return
 			}
 		}
@@ -294,6 +308,7 @@ func (s *KubernetesLogSource) Path() string {
 	if s.podName != "" {
 		return fmt.Sprintf("kubernetes://%s/%s", namespace, s.podName)
 	}
+
 	return fmt.Sprintf("kubernetes://%s/%s", namespace, s.labelSelector)
 }
 
@@ -309,9 +324,12 @@ func (s *KubernetesLogSource) Read(ctx context.Context) (string, error) {
 		if !ok {
 			// Channel closed, try to reinitialize after a delay
 			time.Sleep(5 * time.Second)
+
 			s.logStreams = nil // Reset streams to force reinitialization
+
 			return "", io.EOF
 		}
+
 		return line, nil
 	case <-ctx.Done():
 		return "", ctx.Err()

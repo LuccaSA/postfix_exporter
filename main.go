@@ -47,6 +47,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create PostfixExporter: %s", err)
 	}
+
 	prometheus.MustRegister(exporter)
 
 	http.Handle(*metricsPath, promhttp.Handler())
@@ -63,9 +64,12 @@ func main() {
 			panic(err)
 		}
 	})
+
 	ctx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
+
 	go exporter.StartMetricCollection(ctx)
+
 	log.Print("Listening on ", *listenAddress)
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }

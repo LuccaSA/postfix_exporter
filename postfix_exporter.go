@@ -94,13 +94,16 @@ type LogSource interface {
 // for null bytes in the first 128 bytes of output.
 func CollectShowqFromReader(file io.Reader, ch chan<- prometheus.Metric) error {
 	reader := bufio.NewReader(file)
+
 	buf, err := reader.Peek(128)
 	if err != nil && err != io.EOF {
 		log.Printf("Could not read postfix output, %v", err)
 	}
+
 	if bytes.IndexByte(buf, 0) >= 0 {
 		return CollectBinaryShowqFromReader(reader, ch)
 	}
+
 	return CollectTextualShowqFromReader(reader, ch)
 }
 
@@ -128,6 +131,7 @@ func CollectTextualShowqFromReader(file io.Reader, ch chan<- prometheus.Metric) 
 
 	sizeHistogram.Collect(ch)
 	ageHistogram.Collect(ch)
+
 	return err
 }
 
@@ -157,10 +161,12 @@ func CollectTextualShowqFromScanner(
 
 	for scanner.Scan() {
 		text := scanner.Text()
+
 		matches := messageLine.FindStringSubmatch(text)
 		if matches == nil {
 			continue
 		}
+
 		queueMatch := matches[1]
 		sizeMatch := matches[2]
 		dateMatch := matches[3]
@@ -187,7 +193,9 @@ func CollectTextualShowqFromScanner(
 		if err != nil {
 			return err
 		}
+
 		now := time.Now()
+
 		date = date.AddDate(now.Year(), 0, 0)
 		if date.After(now) {
 			date = date.AddDate(-1, 0, 0)
@@ -196,6 +204,7 @@ func CollectTextualShowqFromScanner(
 		sizeHistogram.WithLabelValues(queue).Observe(size)
 		ageHistogram.WithLabelValues(queue).Observe(now.Sub(date).Seconds())
 	}
+
 	return scanner.Err()
 }
 
@@ -245,6 +254,7 @@ func CollectBinaryShowqFromReader(file io.Reader, ch chan<- prometheus.Metric) e
 
 	now := float64(time.Now().UnixNano()) / 1e9
 	queue := "unknown"
+
 	for scanner.Scan() {
 		// Parse a key/value entry.
 		key := scanner.Text()
@@ -253,9 +263,11 @@ func CollectBinaryShowqFromReader(file io.Reader, ch chan<- prometheus.Metric) e
 			queue = "unknown"
 			continue
 		}
+
 		if !scanner.Scan() {
 			return fmt.Errorf("key %q does not have a value", key)
 		}
+
 		value := scanner.Text()
 
 		if key == "queue_name" {
@@ -267,6 +279,7 @@ func CollectBinaryShowqFromReader(file io.Reader, ch chan<- prometheus.Metric) e
 			if err != nil {
 				return err
 			}
+
 			sizeHistogram.WithLabelValues(queue).Observe(size)
 		} else if key == "time" {
 			// Message time as a UNIX timestamp.
@@ -274,12 +287,14 @@ func CollectBinaryShowqFromReader(file io.Reader, ch chan<- prometheus.Metric) e
 			if err != nil {
 				return err
 			}
+
 			ageHistogram.WithLabelValues(queue).Observe(now - utime)
 		}
 	}
 
 	sizeHistogram.Collect(ch)
 	ageHistogram.Collect(ch)
+
 	return scanner.Err()
 }
 
@@ -290,6 +305,7 @@ func CollectShowqFromSocket(path string, ch chan<- prometheus.Metric) error {
 		return err
 	}
 	defer fd.Close()
+
 	return CollectShowqFromReader(fd, ch)
 }
 
@@ -430,8 +446,10 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 				addToHistogramVec(e.smtpDelays, smtpMatches[3], "queue_manager", "")
 				addToHistogramVec(e.smtpDelays, smtpMatches[4], "connection_setup", "")
 				addToHistogramVec(e.smtpDelays, smtpMatches[5], "transmission", "")
+
 				if smtpStatusMatches := smtpStatusLine.FindStringSubmatch(remainder); smtpStatusMatches != nil {
 					e.smtpProcesses.WithLabelValues(smtpStatusMatches[1]).Inc()
+
 					if smtpStatusMatches[1] == "deferred" {
 						e.smtpStatusDeferred.Inc()
 					}
@@ -487,6 +505,7 @@ func (e *PostfixExporter) addToUnsupportedLine(line string, subprocess string, l
 	if e.logUnsupportedLines {
 		log.Printf("Unsupported Line: %v", line)
 	}
+
 	e.unsupportedLogEntries.WithLabelValues(subprocess, level).Inc()
 }
 
@@ -495,6 +514,7 @@ func addToHistogram(h prometheus.Histogram, value, fieldName string) {
 	if err != nil {
 		log.Printf("Couldn't convert value '%s' for %v: %v", value, fieldName, err)
 	}
+
 	h.Observe(float)
 }
 
@@ -503,6 +523,7 @@ func addToHistogramVec(h *prometheus.HistogramVec, value, fieldName string, labe
 	if err != nil {
 		log.Printf("Couldn't convert value '%s' for %v: %v", value, fieldName, err)
 	}
+
 	h.WithLabelValues(labels...).Observe(float)
 }
 
@@ -523,6 +544,7 @@ func NewPostfixExporter(
 		24 * 60 * 60,
 		2 * 24 * 60 * 60,
 	}
+
 	return &PostfixExporter{
 		logUnsupportedLines: logUnsupportedLines,
 		showqPath:           showqPath,
@@ -701,32 +723,53 @@ func (e *PostfixExporter) Describe(ch chan<- *prometheus.Desc) {
 	if e.logSrc == nil {
 		return
 	}
+
 	ch <- e.cleanupProcesses.Desc()
+
 	ch <- e.cleanupRejects.Desc()
+
 	ch <- e.cleanupNotAccepted.Desc()
+
 	e.lmtpDelays.Describe(ch)
 	e.pipeDelays.Describe(ch)
+
 	ch <- e.qmgrInsertsNrcpt.Desc()
+
 	ch <- e.qmgrInsertsSize.Desc()
+
 	ch <- e.qmgrRemoves.Desc()
+
 	ch <- e.qmgrExpires.Desc()
+
 	e.smtpDelays.Describe(ch)
 	e.smtpTLSConnects.Describe(ch)
+
 	ch <- e.smtpDeferreds.Desc()
+
 	e.smtpProcesses.Describe(ch)
+
 	ch <- e.smtpdConnects.Desc()
+
 	ch <- e.smtpdDisconnects.Desc()
+
 	ch <- e.smtpdFCrDNSErrors.Desc()
+
 	e.smtpdLostConnections.Describe(ch)
 	e.smtpdProcesses.Describe(ch)
 	e.smtpdRejects.Describe(ch)
+
 	ch <- e.smtpdSASLAuthenticationFailures.Desc()
+
 	e.smtpdTLSConnects.Describe(ch)
+
 	ch <- e.smtpStatusDeferred.Desc()
+
 	e.unsupportedLogEntries.Describe(ch)
 	e.smtpConnectionTimedOut.Describe(ch)
 	e.opendkimSignatureAdded.Describe(ch)
+
 	ch <- e.bounceNonDelivery.Desc()
+
 	ch <- e.virtualDelivered.Desc()
 }
 
@@ -743,6 +786,7 @@ func (e *PostfixExporter) StartMetricCollection(ctx context.Context) {
 			Help:      "Whether scraping Postfix's metrics was successful.",
 		},
 		[]string{"path"})
+
 	gauge := gaugeVec.WithLabelValues(e.logSrc.Path())
 	defer gauge.Set(0)
 
@@ -755,6 +799,7 @@ func (e *PostfixExporter) StartMetricCollection(ctx context.Context) {
 			// If EOF, wait a bit for new logs
 			time.Sleep(1 * time.Second)
 		}
+
 		e.CollectFromLogLine(line)
 		gauge.Set(1)
 	}
@@ -771,6 +816,7 @@ func (e *PostfixExporter) Collect(ch chan<- prometheus.Metric) {
 			e.showqPath)
 	} else {
 		log.Printf("Failed to scrape showq socket: %s", err)
+
 		ch <- prometheus.MustNewConstMetric(
 			postfixUpDesc,
 			prometheus.GaugeValue,
@@ -781,31 +827,54 @@ func (e *PostfixExporter) Collect(ch chan<- prometheus.Metric) {
 	if e.logSrc == nil {
 		return
 	}
+
 	ch <- e.cleanupProcesses
+
 	ch <- e.cleanupRejects
+
 	ch <- e.cleanupNotAccepted
+
 	e.lmtpDelays.Collect(ch)
 	e.pipeDelays.Collect(ch)
+
 	ch <- e.qmgrInsertsNrcpt
+
 	ch <- e.qmgrInsertsSize
+
 	ch <- e.qmgrRemoves
+
 	ch <- e.qmgrExpires
+
 	e.smtpDelays.Collect(ch)
 	e.smtpTLSConnects.Collect(ch)
+
 	ch <- e.smtpDeferreds
+
 	e.smtpProcesses.Collect(ch)
+
 	ch <- e.smtpdConnects
+
 	ch <- e.smtpdDisconnects
+
 	ch <- e.smtpdFCrDNSErrors
+
 	e.smtpdLostConnections.Collect(ch)
 	e.smtpdProcesses.Collect(ch)
 	e.smtpdRejects.Collect(ch)
+
 	ch <- e.smtpdSASLAuthenticationFailures
+
 	e.smtpdTLSConnects.Collect(ch)
+
 	ch <- e.smtpStatusDeferred
+
 	e.unsupportedLogEntries.Collect(ch)
+
 	ch <- e.smtpConnectionTimedOut
+
 	e.opendkimSignatureAdded.Collect(ch)
+
 	ch <- e.bounceNonDelivery
+
 	ch <- e.virtualDelivered
 }

@@ -68,6 +68,7 @@ func (s *DockerLogSource) Read(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return strings.TrimSpace(line), nil
 }
 
@@ -93,10 +94,12 @@ func (f *dockerLogSourceFactory) New(ctx context.Context) (LogSourceCloser, erro
 	}
 
 	log.Println("Reading log events from Docker")
+
 	c, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, err
 	}
+
 	return NewDockerLogSource(ctx, c, f.containerID)
 }
 

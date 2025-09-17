@@ -46,6 +46,7 @@ func TestFileLogSource_Read(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read failed: %v", err)
 	}
+
 	assert.Equal(
 		t,
 		"Feb 13 23:31:30 ahost anid[123]: aline",
@@ -61,9 +62,11 @@ func setupFakeLogFile() (string, func(), error) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
 	var wg sync.WaitGroup
 
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
 		defer os.Remove(f.Name())
