@@ -84,7 +84,7 @@ func (f *dockerLogSourceFactory) New(ctx context.Context) (LogSourceCloser, erro
 	}
 
 	log.Println("Reading log events from Docker")
-	c, err := client.NewEnvClient()
+	c, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, err
 	}

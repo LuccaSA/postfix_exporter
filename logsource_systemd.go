@@ -13,9 +13,6 @@ import (
 	"github.com/coreos/go-systemd/v22/sdjournal"
 )
 
-// timeNow is a test fake injection point.
-var timeNow = time.Now
-
 // A SystemdLogSource reads log records from the given Systemd
 // journal.
 type SystemdLogSource struct {

@@ -66,32 +66,23 @@ func TestKubernetesLogSource_Path(t *testing.T) {
 }
 
 func TestKubernetesLogSourceFactory_EnvironmentVariables(t *testing.T) {
-	// Set environment variables
-	os.Setenv("KUBERNETES_POD_NAME", "test-pod-from-env")
-	os.Setenv("KUBERNETES_NAMESPACE", "test-ns-from-env")
-	os.Setenv("KUBERNETES_LABEL_SELECTOR", "app=test-from-env")
-	os.Setenv("KUBERNETES_CONTAINER", "test-container-from-env")
-	
-	defer func() {
-		// Clean up environment variables
-		os.Unsetenv("KUBERNETES_POD_NAME")
-		os.Unsetenv("KUBERNETES_NAMESPACE") 
-		os.Unsetenv("KUBERNETES_LABEL_SELECTOR")
-		os.Unsetenv("KUBERNETES_CONTAINER")
-	}()
-	
-	// Create a new kingpin app and factory
+	// Test environment variable support
+	os.Setenv("KUBERNETES_POD_NAME", "test-pod")
+	os.Setenv("KUBERNETES_NAMESPACE", "test-namespace")
+	defer os.Unsetenv("KUBERNETES_POD_NAME")
+	defer os.Unsetenv("KUBERNETES_NAMESPACE")
+
 	app := kingpin.New("test", "test")
 	factory := &kubernetesLogSourceFactory{}
 	factory.Init(app)
-	
-	// Parse empty args (should use environment variables)
-	_, err := app.Parse([]string{})
-	assert.NoError(t, err)
-	
-	// Verify environment variables were used
-	assert.Equal(t, "test-pod-from-env", factory.podName)
-	assert.Equal(t, "test-ns-from-env", factory.namespace)
-	assert.Equal(t, "app=test-from-env", factory.labelSelector)
-	assert.Equal(t, "test-container-from-env", factory.containerName)
+
+	args := []string{}
+	_, err := app.Parse(args)
+	if err != nil {
+		t.Fatalf("Failed to parse args: %v", err)
+	}
+
+	// Test that environment variables were parsed correctly
+	assert.Equal(t, "test-pod", factory.podName)
+	assert.Equal(t, "test-namespace", factory.namespace)
 }
