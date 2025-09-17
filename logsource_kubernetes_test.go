@@ -23,7 +23,10 @@ func TestKubernetesLogSourceFactory_Init(t *testing.T) {
 		"--kubernetes.kubeconfig", "/path/to/kubeconfig",
 	}
 	
-	app.Parse(args)
+	_, err := app.Parse(args)
+	if err != nil {
+		t.Fatalf("Failed to parse args: %v", err)
+	}
 	
 	assert.Equal(t, "default", factory.namespace)
 	assert.Equal(t, "app=postfix", factory.labelSelector)
