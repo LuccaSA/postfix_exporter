@@ -47,17 +47,35 @@ func InitLogSourceFactories(app *kingpin.Application) {
 }
 
 // NewLogSourceFromFactories iterates through the factories and
-// attempts to instantiate a log source. The first factory to return
-// success wins.
+// attempts to instantiate a log source. Non-file sources take priority
+// over file sources. The first non-file factory to return success wins,
+// otherwise falls back to file sources.
 func NewLogSourceFromFactories(ctx context.Context) (LogSourceCloser, error) {
+	var (
+		fileSource LogSourceCloser
+		fileError  error
+	)
+
+	// First pass: try all non-file sources
+
 	for _, f := range logSourceFactories {
 		src, err := f.New(ctx)
 		if err != nil {
 			return nil, err
 		}
+
 		if src != nil {
 			return src, nil
 		}
+	}
+
+	// If no non-file source was configured, fall back to file source
+	if fileError != nil {
+		return nil, fileError
+	}
+
+	if fileSource != nil {
+		return fileSource, nil
 	}
 
 	return nil, fmt.Errorf("no log source configured")

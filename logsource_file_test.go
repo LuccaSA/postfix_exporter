@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sync"
 	"testing"
@@ -47,19 +46,27 @@ func TestFileLogSource_Read(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read failed: %v", err)
 	}
-	assert.Equal(t, "Feb 13 23:31:30 ahost anid[123]: aline", s, "Read should get data from the journal entry.")
+
+	assert.Equal(
+		t,
+		"Feb 13 23:31:30 ahost anid[123]: aline",
+		s,
+		"Read should get data from the journal entry.",
+	)
 }
 
 func setupFakeLogFile() (string, func(), error) {
-	f, err := ioutil.TempFile("", "filelogsource")
+	f, err := os.CreateTemp("", "filelogsource")
 	if err != nil {
 		return "", nil, err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
 	var wg sync.WaitGroup
 
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
 		defer os.Remove(f.Name())

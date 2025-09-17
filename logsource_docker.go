@@ -1,3 +1,4 @@
+//go:build !nodocker
 // +build !nodocker
 
 package main
@@ -30,7 +31,11 @@ type DockerClient interface {
 }
 
 // NewDockerLogSource returns a log source for reading Docker logs.
-func NewDockerLogSource(ctx context.Context, c DockerClient, containerID string) (*DockerLogSource, error) {
+func NewDockerLogSource(
+	ctx context.Context,
+	c DockerClient,
+	containerID string,
+) (*DockerLogSource, error) {
 	r, err := c.ContainerLogs(ctx, containerID, types.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
@@ -63,6 +68,7 @@ func (s *DockerLogSource) Read(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return strings.TrimSpace(line), nil
 }
 
@@ -74,8 +80,12 @@ type dockerLogSourceFactory struct {
 }
 
 func (f *dockerLogSourceFactory) Init(app *kingpin.Application) {
-	app.Flag("docker.enable", "Read from Docker logs. Environment variable DOCKER_HOST can be used to change the address. See https://pkg.go.dev/github.com/docker/docker/client?tab=doc#NewEnvClient for more information.").Default("false").BoolVar(&f.enable)
-	app.Flag("docker.container.id", "ID/name of the Postfix Docker container.").Default("postfix").StringVar(&f.containerID)
+	app.Flag("docker.enable", "Read from Docker logs. Environment variable DOCKER_HOST can be used to change the address. See https://pkg.go.dev/github.com/docker/docker/client?tab=doc#NewEnvClient for more information.").
+		Default("false").
+		BoolVar(&f.enable)
+	app.Flag("docker.container.id", "ID/name of the Postfix Docker container.").
+		Default("postfix").
+		StringVar(&f.containerID)
 }
 
 func (f *dockerLogSourceFactory) New(ctx context.Context) (LogSourceCloser, error) {
@@ -84,10 +94,12 @@ func (f *dockerLogSourceFactory) New(ctx context.Context) (LogSourceCloser, erro
 	}
 
 	log.Println("Reading log events from Docker")
-	c, err := client.NewEnvClient()
+
+	c, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, err
 	}
+
 	return NewDockerLogSource(ctx, c, f.containerID)
 }
 

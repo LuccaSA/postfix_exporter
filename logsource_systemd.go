@@ -1,20 +1,18 @@
+//go:build !nosystemd && linux
 // +build !nosystemd,linux
 
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"time"
-	"bytes"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/coreos/go-systemd/v22/sdjournal"
 )
-
-// timeNow is a test fake injection point.
-var timeNow = time.Now
 
 // A SystemdLogSource reads log records from the given Systemd
 // journal.
@@ -42,9 +40,9 @@ func NewSystemdLogSource(path, unit, slice string) (*SystemdLogSource, error) {
 
 	config := sdjournal.JournalReaderConfig{
 		NumFromTail: 1,
-		Matches: matches,
-		Path: path,
-		Formatter: fullMessageFormatter,
+		Matches:     matches,
+		Path:        path,
+		Formatter:   fullMessageFormatter,
 	}
 
 	j, err := sdjournal.NewJournalReader(config)
@@ -72,6 +70,7 @@ func fullMessageFormatter(entry *sdjournal.JournalEntry) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("no SYSLOG_IDENTIFIER field present in journal entry")
 	}
+
 	pid, ok := entry.Fields["_PID"]
 	if !ok {
 		return "", fmt.Errorf("no PID field present in journal entry")
@@ -96,7 +95,7 @@ func (s *SystemdLogSource) Read(ctx context.Context) (string, error) {
 
 	var err error
 	var msg bytes.Buffer
-	var b = make([]byte, BUFFER_LEN)
+	b := make([]byte, BUFFER_LEN)
 
 	for {
 		n, err := s.journal.Read(b)
@@ -123,9 +122,15 @@ type systemdLogSourceFactory struct {
 }
 
 func (f *systemdLogSourceFactory) Init(app *kingpin.Application) {
-	app.Flag("systemd.enable", "Read from the systemd journal instead of log").Default("false").BoolVar(&f.enable)
-	app.Flag("systemd.unit", "Name of the Postfix systemd unit.").Default("postfix.service").StringVar(&f.unit)
-	app.Flag("systemd.slice", "Name of the Postfix systemd slice. Overrides the systemd unit.").Default("").StringVar(&f.slice)
+	app.Flag("systemd.enable", "Read from the systemd journal instead of log").
+		Default("false").
+		BoolVar(&f.enable)
+	app.Flag("systemd.unit", "Name of the Postfix systemd unit.").
+		Default("postfix.service").
+		StringVar(&f.unit)
+	app.Flag("systemd.slice", "Name of the Postfix systemd slice. Overrides the systemd unit.").
+		Default("").
+		StringVar(&f.slice)
 	app.Flag("systemd.journal_path", "Path to the systemd journal").Default("").StringVar(&f.path)
 }
 
