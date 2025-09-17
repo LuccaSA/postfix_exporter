@@ -59,19 +59,6 @@ func NewLogSourceFromFactories(ctx context.Context) (LogSourceCloser, error) {
 	// First pass: try all non-file sources
 
 	for _, f := range logSourceFactories {
-		// Skip file log source factory in first pass
-		if _, isFileFactory := f.(*fileLogSourceFactory); isFileFactory {
-			// Store the file source for potential fallback
-			src, err := f.New(ctx)
-			if err != nil {
-				fileError = err
-			} else {
-				fileSource = src
-			}
-
-			continue
-		}
-
 		src, err := f.New(ctx)
 		if err != nil {
 			return nil, err
